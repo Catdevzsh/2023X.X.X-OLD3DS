@@ -1,0 +1,81 @@
+make a payload that fixes the luma3ds not booting the hex file for ntr on 3ds and load the 3ds home screen and place the loader in a .bin payload and automaticlly skip luma3ds﻿ ```
+// Payload that fixes Luma3DS not booting the NTR hex file on 3DS
+// and loads the 3DS home screen
+
+// Place the loader in a .bin payload and automatically skip Luma3DS
+
+#include <3ds/types.h>
+#include <3ds/services/sdmc.h>
+#include <3ds/services/fs.h>
+
+// Define the path to the NTR hex file
+#define NTR_PATH "/luma/payloads/ntr.bin"
+
+// Define the path to the 3DS home screen loader
+#define HOME_SCREEN_LOADER_PATH "/luma/payloads/home_screen_loader.bin"
+
+// Define the function to load the 3DS home screen
+void load_home_screen() {
+  // Open the 3DS home screen loader
+  FS_File file = FS_open(HOME_SCREEN_LOADER_PATH, FS_OPEN_READ);
+
+  // Check if the file was opened successfully
+  if (file == 0) {
+    // The file could not be opened, so return
+    return;
+  }
+
+  // Read the contents of the file into a buffer
+  u8 buffer[FS_FILE_MAX_SIZE];
+  u32 size = FS_read(file, buffer, sizeof(buffer));
+
+  // Close the file
+  FS_close(file);
+
+  // Launch the 3DS home screen
+  svcCreateThread(&thread, load_home_screen_thread, buffer, size, 0x10000, 0);
+}
+
+// Define the thread function for loading the 3DS home screen
+void load_home_screen_thread(void* arg) {
+  // Get the buffer containing the 3DS home screen loader
+  u8* buffer = (u8*)arg;
+
+  // Launch the 3DS home screen
+  svcLaunchTitle(buffer, 0x00000000, 0x00000000);
+}
+
+int main() {
+  // Check if Luma3DS is running
+  if (R_SUCCEEDED(srvGetServiceHandle(SV_SERVICE_LUMA))) {
+    // Luma3DS is running, so skip it
+    load_home_screen();
+    return 0;
+  }
+
+  // Luma3DS is not running, so load the NTR hex file
+  FS_File file = FS_open(NTR_PATH, FS_OPEN_READ);
+
+  // Check if the file was opened successfully
+  if (file == 0) {
+    // The file could not be opened, so return
+    return 1;
+  }
+
+  // Read the contents of the file into a buffer
+  u8 buffer[FS_FILE_MAX_SIZE];
+  u32 size = FS_read(file, buffer, sizeof(buffer));
+
+  // Close the file
+  FS_close(file);
+
+  // Launch the NTR loader
+  svcCreateThread(&thread, ntr_loader_thread, buffer, size, 0x10000, 0);
+
+  // Wait for the NTR loader to finish
+  svcWaitSynchronization(&event, U64_MAX);
+
+  // Return 0 to indicate success
+  return 0;
+}
+```﻿
